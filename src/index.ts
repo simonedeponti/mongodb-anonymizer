@@ -1,6 +1,6 @@
 import { Command, flags } from "@oclif/command";
-import { Collection, Cursor, MongoClient } from "mongodb";
-import * as faker from "faker";
+import { MongoClient, Collection } from "mongodb";
+import { faker } from "@faker-js/faker";
 
 class MongodbAnonymizer extends Command {
   static description = "describe the command here";
@@ -16,10 +16,6 @@ class MongodbAnonymizer extends Command {
       default:
         "email,name,description,address,city,country,phone,comment,birthdate",
     }),
-    fakerLocale: flags.string({
-      char: "f",
-      description: "faker locale (e.g: en, fr, de)",
-    }),
     ignoreDocuments: flags.string({
       char: "i",
       description:
@@ -34,20 +30,15 @@ class MongodbAnonymizer extends Command {
       );
     }
 
-    if (flags.fakerLocale) {
-      faker.locale = flags.fakerLocale;
-    }
     const ignoreDocuments = flags.ignoreDocuments?.split(",") || [];
 
     this.log("Connecting to source…");
-    const client = new MongoClient(flags.uri, { useUnifiedTopology: true });
+    const client = new MongoClient(flags.uri);
     await client.connect();
     const db = client.db();
 
     this.log("Connecting to target…");
-    const targetClient = new MongoClient(flags.targetUri, {
-      useUnifiedTopology: true,
-    });
+    const targetClient = new MongoClient(flags.targetUri);
     await targetClient.connect();
     const targetDb = targetClient.db();
 
@@ -71,14 +62,13 @@ class MongodbAnonymizer extends Command {
       this.log("Anonymizing collection: " + collectionName);
       this.log("Cleaning up target collection: " + collectionName);
       await targetDb.collection(collectionName).deleteMany({});
-      const sourceCursor = await db
-        .collection(collectionName)
-        .find();
+      const sourceCollection = await db
+        .collection(collectionName);
       const targetCollection = await targetDb
         .collection(collectionName);
       const list = flags.list.split(",");
       await this.anonymizeCollection(
-        sourceCursor,
+        sourceCollection,
         targetCollection,
         collectionName,
         list
@@ -90,7 +80,7 @@ class MongodbAnonymizer extends Command {
     await targetClient.close();
   }
   async anonymizeCollection(
-    sourceCursor: Cursor<any>,
+    sourceCollection: Collection<any>,
     targetCollection: Collection<any>,
     collectionName: string,
     list: string[]
@@ -109,7 +99,7 @@ class MongodbAnonymizer extends Command {
       }));
     const fieldsToAnonymize = keysToAnonymize.map((item) => item.field);
     this.log(`Fields to anonymize: ${fieldsToAnonymize}`);
-    for await (const document of sourceCursor) {
+    for await (const document of sourceCollection.find()) {
       const documentAnonymized = {};
       for (const key in document) {
         if (!document) continue;
@@ -123,7 +113,7 @@ class MongodbAnonymizer extends Command {
           documentAnonymized[key] = document[key];
         }
       }
-      targetCollection.insertOne(documentAnonymized);
+      await targetCollection.insertOne(documentAnonymized);
     }
   }
 
@@ -147,18 +137,18 @@ class MongodbAnonymizer extends Command {
       return replacement;
     }
     if (key.includes("email"))
-      return faker.unique(faker.internet.email).toLowerCase();
-    if (key.includes("firstname")) return faker.name.firstName();
-    if (key.includes("lastname")) return faker.name.lastName();
+      return faker.internet.email();
+    if (key.includes("firstname")) return faker.person.firstName();
+    if (key.includes("lastname")) return faker.person.lastName();
     if (key === "description") return faker.lorem.sentence();
-    if (key.endsWith("address")) return faker.address.streetAddress();
-    if (key.endsWith("city")) return faker.address.city();
-    if (key.endsWith("country")) return faker.address.country();
-    if (key.endsWith("phone")) return faker.phone.phoneNumber();
+    if (key.endsWith("address")) return faker.location.streetAddress();
+    if (key.endsWith("city")) return faker.location.city();
+    if (key.endsWith("country")) return faker.location.country();
+    if (key.endsWith("phone")) return faker.phone.number();
     if (key.endsWith("comment")) return faker.lorem.sentence();
     if (key.endsWith("date")) return faker.date.past();
-    if (key.endsWith("name")) return faker.name.findName();
-    return faker.random.word();
+    if (key.endsWith("name")) return faker.person.fullName();
+    return faker.lorem.word();
   }
 }
 

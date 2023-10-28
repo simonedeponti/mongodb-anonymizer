@@ -1,0 +1,13 @@
+services:
+  mongo:
+    image: "mongo:4.2.6"
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./sample-data/import.sh:/docker-entrypoint-initdb.d/import.sh
+      - ./sample-data/test_anon.js:/docker-entrypoint-initdb.d/test_anon.js
+      - ./sample-data/people.json.gz:/sample-data/people.json.gz
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+      MONGO_INITDB_DATABASE: test

@@ -63,3 +63,7 @@ npx mongodb-anonymizer  \
   --targetUri=mongodb://localhost:27017/anonymized
   --list=textcol:hello,jsoncol:{},intcol:12
 ```
+
+## Test
+
+Run `docker-compose up -d`, then run `./test.sh`
