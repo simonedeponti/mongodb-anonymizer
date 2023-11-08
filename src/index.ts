@@ -2,6 +2,11 @@ import { Command, flags } from "@oclif/command";
 import { MongoClient, Collection } from "mongodb";
 import { faker } from "@faker-js/faker";
 
+type Replacement = {
+  field: string;
+  replacement: string;
+};
+
 class MongodbAnonymizer extends Command {
   static description = "describe the command here";
 
@@ -100,21 +105,31 @@ class MongodbAnonymizer extends Command {
     const fieldsToAnonymize = keysToAnonymize.map((item) => item.field);
     this.log(`Fields to anonymize: ${fieldsToAnonymize}`);
     for await (const document of sourceCollection.find()) {
-      const documentAnonymized = {};
-      for (const key in document) {
-        if (!document) continue;
-        if (fieldsToAnonymize.includes(key.toLowerCase())) {
-          documentAnonymized[key] = this.anonymizeValue(
-            key.toLowerCase(),
-            keysToAnonymize.find((item) => item.field === key.toLowerCase())
-              ?.replacement
-          );
-        } else {
-          documentAnonymized[key] = document[key];
-        }
-      }
+      const documentAnonymized = this.anonymizeMap(document, "", fieldsToAnonymize, keysToAnonymize);
       await targetCollection.insertOne(documentAnonymized);
     }
+  }
+
+  anonymizeMap(map: object, prefix: string, fieldsToAnonymize: string[], keysToAnonymize: Replacement[]) {
+    const anonymized = {};
+    for (const key in map) {
+      const fullKey = prefix ? `${prefix}.${key}` : key;
+      if (fieldsToAnonymize.includes(fullKey.toLowerCase())) {
+        anonymized[key] = this.anonymizeValue(
+          key.toLowerCase(),
+          keysToAnonymize.find((item) => item.field === fullKey.toLowerCase())
+            ?.replacement
+        );
+      } else {
+        if(typeof anonymized[key] === "object") {
+          anonymized[key] = this.anonymizeMap(document[key], fullKey, fieldsToAnonymize, keysToAnonymize);
+        }
+        else {
+          anonymized[key] = document[key];
+        }
+      }
+    }
+    return anonymized;
   }
 
   anonymizeValue(key: any, replacement) {
