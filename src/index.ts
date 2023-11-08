@@ -105,6 +105,7 @@ class MongodbAnonymizer extends Command {
     const fieldsToAnonymize = keysToAnonymize.map((item) => item.field);
     this.log(`Fields to anonymize: ${fieldsToAnonymize}`);
     for await (const document of sourceCollection.find()) {
+      if(!document) continue;
       const documentAnonymized = this.anonymizeMap(document, "", fieldsToAnonymize, keysToAnonymize);
       await targetCollection.insertOne(documentAnonymized);
     }
@@ -121,11 +122,11 @@ class MongodbAnonymizer extends Command {
             ?.replacement
         );
       } else {
-        if(typeof anonymized[key] === "object") {
-          anonymized[key] = this.anonymizeMap(document[key], fullKey, fieldsToAnonymize, keysToAnonymize);
+        if(key != '_id' && typeof map[key] === "object") {
+          anonymized[key] = this.anonymizeMap(map[key], fullKey, fieldsToAnonymize, keysToAnonymize);
         }
         else {
-          anonymized[key] = document[key];
+          anonymized[key] = map[key];
         }
       }
     }
