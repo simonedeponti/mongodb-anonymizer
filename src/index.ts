@@ -65,19 +65,24 @@ class MongodbAnonymizer extends Command {
       }
 
       this.log("Anonymizing collection: " + collectionName);
-      this.log("Cleaning up target collection: " + collectionName);
-      await targetDb.collection(collectionName).deleteMany({});
       const sourceCollection = await db
         .collection(collectionName);
       const targetCollection = await targetDb
         .collection(collectionName);
       const list = flags.list.split(",");
-      await this.anonymizeCollection(
-        sourceCollection,
-        targetCollection,
-        collectionName,
-        list
-      );
+      if((await sourceCollection.countDocuments()) > 0) {
+        this.log("Cleaning up target collection: " + collectionName);
+        await targetCollection.deleteMany({});
+        await this.anonymizeCollection(
+          sourceCollection,
+          targetCollection,
+          collectionName,
+          list
+        );
+      }
+      else {
+        this.log(`Skipping collection ${collectionName} as it's empty`);
+      }
     }
     this.log("Done!");
 
