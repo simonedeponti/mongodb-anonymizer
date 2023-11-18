@@ -64,6 +64,15 @@ npx mongodb-anonymizer  \
   --list=textcol:hello,jsoncol:{},intcol:12
 ```
 
+You can also anonymize nested fields by using a dot notation
+(you'll be forced to specify them per collection as the first will be the collection):
+```bash
+npx mongodb-anonymizer  \
+  --uri=mongodb://localhost:27017/source \
+  --targetUri=mongodb://localhost:27017/anonymized
+  --list=mycoll.nested.field:hello,mycoll.nested.intcol:12
+```
+
 ## Test
 
 Run `docker-compose up -d`, then run `./test.sh`
