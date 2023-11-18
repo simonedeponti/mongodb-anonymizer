@@ -26,6 +26,11 @@ class MongodbAnonymizer extends Command {
       description:
         "documents from these collections will be ignored (comma separated)",
     }),
+    batchSize: flags.integer({
+      char: "b",
+      description: "size of batch to write (batched writes are way faster)",
+      default: 1000
+    })
   };
   async run() {
     const { flags } = this.parse(MongodbAnonymizer);
@@ -77,7 +82,8 @@ class MongodbAnonymizer extends Command {
           sourceCollection,
           targetCollection,
           collectionName,
-          list
+          list,
+          flags.batchSize
         );
       }
       else {
@@ -93,7 +99,8 @@ class MongodbAnonymizer extends Command {
     sourceCollection: Collection<any>,
     targetCollection: Collection<any>,
     collectionName: string,
-    list: string[]
+    list: string[],
+    batchSize: number
   ) {
     const keysToAnonymize = list
       .filter(
@@ -109,10 +116,28 @@ class MongodbAnonymizer extends Command {
       }));
     const fieldsToAnonymize = keysToAnonymize.map((item) => item.field);
     this.log(`Fields to anonymize: ${fieldsToAnonymize}`);
+    let batch = [];
+    let batchCount = 0;
+    let readItems = 0;
+    let writtenItems = 0;
     for await (const document of sourceCollection.find()) {
       if(!document) continue;
+      readItems++;
       const documentAnonymized = this.anonymizeMap(document, "", fieldsToAnonymize, keysToAnonymize);
-      await targetCollection.insertOne(documentAnonymized);
+      batch.push(documentAnonymized);
+      batchCount++;
+      if(batchCount >= batchSize) {
+        await targetCollection.insertMany(batch);
+        writtenItems = writtenItems + batchCount;
+        this.log(`Inserted ${batchCount} elements (${readItems} read, ${writtenItems} written)`);
+        batch = [];
+        batchCount = 0;
+      }
+    }
+    if(batchCount > 0) {
+      await targetCollection.insertMany(batch);
+      writtenItems = writtenItems + batchCount;
+      this.log(`Inserted ${batchCount} elements (${readItems} read, ${writtenItems} written)`);
     }
   }
 
