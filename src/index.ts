@@ -152,7 +152,7 @@ class MongodbAnonymizer extends Command {
             ?.replacement
         );
       } else {
-        if(key != '_id' && typeof map[key] === "object") {
+        if(key != '_id' && map[key] && !Array.isArray(map[key]) && typeof map[key] === "object") {
           anonymized[key] = this.anonymizeMap(map[key], fullKey, fieldsToAnonymize, keysToAnonymize);
         }
         else {
